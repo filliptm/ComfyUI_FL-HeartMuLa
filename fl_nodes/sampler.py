@@ -181,7 +181,7 @@ class FL_HeartMuLa_Sampler:
                 curr_token = pipeline.model.generate_frame(
                     tokens=prompt_tokens,
                     tokens_mask=prompt_tokens_mask,
-                    input_pos=prompt_pos,
+                    input_pos=prompt_pos.to(device),
                     temperature=temperature,
                     topk=top_k,
                     cfg_scale=cfg_scale,
@@ -216,7 +216,7 @@ class FL_HeartMuLa_Sampler:
                     curr_token = pipeline.model.generate_frame(
                         tokens=curr_token,
                         tokens_mask=curr_token_mask,
-                        input_pos=prompt_pos[..., -1:] + i + 1,
+                        input_pos=(prompt_pos[..., -1:] + i + 1).to(device),
                         temperature=temperature,
                         topk=top_k,
                         cfg_scale=cfg_scale,

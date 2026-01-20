@@ -162,6 +162,10 @@ class HeartMuLa(PreTrainedModel):
             pass
 
         # Setup caches on the model's device
+        # Ensure models are on the correct device before setting up caches
+        self.backbone = self.backbone.to(device)
+        self.decoder = self.decoder.to(device)
+        
         self.backbone.setup_caches(max_batch_size, dtype)
         self.decoder.setup_caches(
             max_batch_size,
@@ -190,6 +194,10 @@ class HeartMuLa(PreTrainedModel):
         starts=None,
     ) -> torch.Tensor:
         b, s, _ = tokens.size()
+        
+        # Ensure input_pos is on the same device as the model
+        device = next(self.parameters()).device
+        input_pos = input_pos.to(device)
 
         assert self.backbone.caches_are_enabled(), "backbone caches are not enabled"
         curr_backbone_mask = _index_causal_mask(self.backbone_causal_mask, input_pos)
@@ -240,8 +248,10 @@ class HeartMuLa(PreTrainedModel):
         self.decoder.reset_caches()
         curr_h = torch.cat([last_h.unsqueeze(1), c0_embed], dim=1)
         curr_sample = c0_sample.clone()
+        # Ensure curr_pos is on the correct device
+        device = next(self.parameters()).device
         curr_pos = (
-            torch.arange(0, curr_h.size(1), device=curr_h.device)
+            torch.arange(0, curr_h.size(1), device=device)
             .unsqueeze(0)
             .repeat(curr_h.size(0), 1)
         )
@@ -265,7 +275,8 @@ class HeartMuLa(PreTrainedModel):
             ci_embed = self._embed_audio(i, ci_sample)
             curr_h = ci_embed
             curr_sample = torch.cat([curr_sample, ci_sample], dim=1)
-            curr_pos = curr_pos[:, -1:] + 1
+            # Ensure curr_pos stays on the correct device when incrementing
+            curr_pos = (curr_pos[:, -1:] + 1).to(device)
 
         return curr_sample
 
