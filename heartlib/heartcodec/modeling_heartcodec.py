@@ -62,8 +62,12 @@ class HeartCodec(PreTrainedModel):
         num_steps=10,
         disable_progress=False,
         guidance_scale=1.25,
-        device="cuda",
+        device=None,
     ):
+        # Use model's device if device not specified
+        if device is None:
+            device = next(self.parameters()).device
+        
         codes = codes.unsqueeze(0).to(device)
         first_latent = torch.randn(codes.shape[0], int(duration * 25), 256).to(
             device

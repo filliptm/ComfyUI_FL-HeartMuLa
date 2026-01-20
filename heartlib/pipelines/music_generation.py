@@ -234,7 +234,12 @@ class HeartMuLaGenPipeline(Pipeline):
         if os.path.exists(
             heartcodec_path := os.path.join(pretrained_path, "HeartCodec-oss")
         ):
-            heartcodec = HeartCodec.from_pretrained(heartcodec_path, device_map=device)
+            # For MPS, we need to load on CPU first, then move to device
+            if device.type == "mps":
+                heartcodec = HeartCodec.from_pretrained(heartcodec_path, device_map="cpu")
+                heartcodec = heartcodec.to(device)
+            else:
+                heartcodec = HeartCodec.from_pretrained(heartcodec_path, device_map=device)
         else:
             raise FileNotFoundError(
                 f"Expected to find checkpoint for HeartCodec at {heartcodec_path} but not found. Please check your folder {pretrained_path}."
@@ -246,6 +251,8 @@ class HeartMuLaGenPipeline(Pipeline):
             heartmula = HeartMuLa.from_pretrained(
                 heartmula_path, dtype=dtype, quantization_config=bnb_config
             )
+            # Explicitly move to device (especially important for MPS)
+            heartmula = heartmula.to(device)
         else:
             raise FileNotFoundError(
                 f"Expected to find checkpoint for HeartMuLa at {heartmula_path} but not found. Please check your folder {pretrained_path}."

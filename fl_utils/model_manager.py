@@ -186,9 +186,11 @@ def load_model(
     Returns:
         Model info dict containing pipeline and metadata
     """
-    # Determine device
+    # Determine device (prioritize CUDA, then MPS, then CPU)
     if torch.cuda.is_available():
         device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
     else:
         device = torch.device("cpu")
 
@@ -196,6 +198,9 @@ def load_model(
     if precision == "auto":
         if device.type == "cuda":
             dtype = torch.float16
+        elif device.type == "mps":
+            # MPS works best with float32, fp16 can cause issues
+            dtype = torch.float32
         else:
             dtype = torch.float32
     elif precision == "fp32":
@@ -278,6 +283,8 @@ def clear_model_cache():
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
+    elif torch.backends.mps.is_available():
+        torch.mps.empty_cache()
 
     print("[FL HeartMuLa] Model cache cleared")
 

@@ -161,13 +161,13 @@ class HeartMuLa(PreTrainedModel):
         except RuntimeError:
             pass
 
-        with device:
-            self.backbone.setup_caches(max_batch_size, dtype)
-            self.decoder.setup_caches(
-                max_batch_size,
-                dtype,
-                decoder_max_seq_len=self.config.audio_num_codebooks,
-            )
+        # Setup caches on the model's device
+        self.backbone.setup_caches(max_batch_size, dtype)
+        self.decoder.setup_caches(
+            max_batch_size,
+            dtype,
+            decoder_max_seq_len=self.config.audio_num_codebooks,
+        )
 
         self.register_buffer(
             "backbone_causal_mask",

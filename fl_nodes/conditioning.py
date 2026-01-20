@@ -121,7 +121,7 @@ class FL_HeartMuLa_Conditioning:
             tags_ids = tags_ids + [pipeline.config.text_eos_id]
 
         # MuQ embedding placeholder (for future reference audio support)
-        muq_embed = torch.zeros([pipeline._muq_dim], dtype=dtype)
+        muq_embed = torch.zeros([pipeline._muq_dim], dtype=dtype, device=device)
         muq_idx = len(tags_ids)
 
         # Process lyrics
@@ -136,9 +136,9 @@ class FL_HeartMuLa_Conditioning:
         prompt_len = len(tags_ids) + 1 + len(lyrics_ids)
         parallel_number = pipeline._parallel_number
 
-        tokens = torch.zeros([prompt_len, parallel_number], dtype=torch.long)
-        tokens[:len(tags_ids), -1] = torch.tensor(tags_ids)
-        tokens[len(tags_ids) + 1:, -1] = torch.tensor(lyrics_ids)
+        tokens = torch.zeros([prompt_len, parallel_number], dtype=torch.long, device=device)
+        tokens[:len(tags_ids), -1] = torch.tensor(tags_ids, device=device)
+        tokens[len(tags_ids) + 1:, -1] = torch.tensor(lyrics_ids, device=device)
 
         tokens_mask = torch.zeros_like(tokens, dtype=torch.bool)
         tokens_mask[:, -1] = True
@@ -154,11 +154,11 @@ class FL_HeartMuLa_Conditioning:
 
         # Build conditioning dict
         conditioning = {
-            "tokens": _cfg_cat(tokens).to(device),
-            "tokens_mask": _cfg_cat(tokens_mask).to(device),
-            "muq_embed": _cfg_cat(muq_embed).to(device),
+            "tokens": _cfg_cat(tokens),
+            "tokens_mask": _cfg_cat(tokens_mask),
+            "muq_embed": _cfg_cat(muq_embed),
             "muq_idx": [muq_idx] * bs_size,
-            "pos": _cfg_cat(torch.arange(prompt_len, dtype=torch.long)).to(device),
+            "pos": _cfg_cat(torch.arange(prompt_len, dtype=torch.long, device=device)),
             "cfg_scale": cfg_scale,
             "prompt_len": prompt_len,
         }
