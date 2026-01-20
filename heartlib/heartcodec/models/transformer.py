@@ -423,7 +423,7 @@ class PixArtAlphaCombinedFlowEmbeddings(nn.Module):
             -math.log(max_period)
             * torch.arange(start=0, end=half, device=timesteps.device)
             / half
-        ).type(timesteps.type())
+        ).to(dtype=timesteps.dtype)
         args = timesteps[:, None] * freqs[None] * scale
         embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
         if self.flow_t_size % 2:
