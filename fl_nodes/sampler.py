@@ -150,12 +150,12 @@ class FL_HeartMuLa_Sampler:
         max_duration_ms = min(max_duration_sec * 1000, max_duration_ms)
         max_audio_frames = max_duration_ms // 80
 
-        # Extract conditioning tensors
-        prompt_tokens = conditioning["tokens"]
-        prompt_tokens_mask = conditioning["tokens_mask"]
-        continuous_segment = conditioning["muq_embed"]
+        # Extract conditioning tensors and move to device
+        prompt_tokens = conditioning["tokens"].to(device)
+        prompt_tokens_mask = conditioning["tokens_mask"].to(device)
+        continuous_segment = conditioning["muq_embed"].to(device)
         starts = conditioning["muq_idx"]
-        prompt_pos = conditioning["pos"]
+        prompt_pos = conditioning["pos"].to(device)
         cfg_scale = conditioning["cfg_scale"]
 
         print(f"CFG Scale: {cfg_scale}")
@@ -181,7 +181,7 @@ class FL_HeartMuLa_Sampler:
                 curr_token = pipeline.model.generate_frame(
                     tokens=prompt_tokens,
                     tokens_mask=prompt_tokens_mask,
-                    input_pos=prompt_pos.to(device),
+                    input_pos=prompt_pos,
                     temperature=temperature,
                     topk=top_k,
                     cfg_scale=cfg_scale,

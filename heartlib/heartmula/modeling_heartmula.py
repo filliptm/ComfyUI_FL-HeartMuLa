@@ -207,26 +207,38 @@ class HeartMuLa(PreTrainedModel):
             actual_B = b // 2
             uncond_mask = torch.cat(
                 [
-                    torch.zeros(actual_B, dtype=torch.bool, device=tokens.device),
-                    torch.ones(actual_B, dtype=torch.bool, device=tokens.device),
+                    torch.zeros(actual_B, dtype=torch.bool, device=device),
+                    torch.ones(actual_B, dtype=torch.bool, device=device),
                 ]
             )
 
+        # Ensure tokens and tokens_mask are on the correct device
+        tokens = tokens.to(device)
+        tokens_mask = tokens_mask.to(device)
+        
         embeds = self._embed_tokens(tokens, uncond_mask=uncond_mask)
         masked_embeds = embeds * tokens_mask.unsqueeze(-1)
         h = masked_embeds.sum(dim=2, dtype=embeds.dtype)  # merge
         if continuous_segments is not None:
+            continuous_segments = continuous_segments.to(device)
             continuous_segments = self.muq_linear(continuous_segments)
             if uncond_mask is not None:
                 uncond_embed = self.unconditional_text_embedding(
-                    torch.zeros(1, device=tokens.device, dtype=torch.long)
+                    torch.zeros(1, device=device, dtype=torch.long)
                 )
                 mask_expanded = uncond_mask.view(b, 1).expand_as(continuous_segments)
                 continuous_segments = torch.where(
                     mask_expanded, uncond_embed, continuous_segments
                 )
-            batch_indices = torch.arange(h.shape[0], device=h.device)
-            h[batch_indices, starts] = continuous_segments
+            # Convert starts to tensor if it's a list
+            if isinstance(starts, list):
+                starts_tensor = torch.tensor(starts, device=device, dtype=torch.long)
+            elif isinstance(starts, torch.Tensor):
+                starts_tensor = starts.to(device).long()
+            else:
+                starts_tensor = torch.tensor([starts], device=device, dtype=torch.long)
+            batch_indices = torch.arange(h.shape[0], device=device)
+            h[batch_indices, starts_tensor] = continuous_segments
         h = self.backbone(h, input_pos=input_pos, mask=curr_backbone_mask)
         last_h = h[:, -1, :]  # the last frame
         c0_logits = self.codebook0_head(last_h)  # only predict the audio part
