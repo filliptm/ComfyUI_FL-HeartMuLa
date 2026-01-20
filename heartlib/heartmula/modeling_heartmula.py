@@ -172,6 +172,11 @@ class HeartMuLa(PreTrainedModel):
             dtype,
             decoder_max_seq_len=self.config.audio_num_codebooks,
         )
+        
+        # For MPS and other devices, explicitly move KV caches to the correct device
+        # torchtune's setup_caches may create caches on CPU
+        self._move_kv_caches_to_device(self.backbone, device)
+        self._move_kv_caches_to_device(self.decoder, device)
 
         self.register_buffer(
             "backbone_causal_mask",
@@ -181,6 +186,21 @@ class HeartMuLa(PreTrainedModel):
             "decoder_causal_mask",
             _create_causal_mask(self.config.audio_num_codebooks, device),
         )
+    
+    def _move_kv_caches_to_device(self, model, device):
+        """Recursively move KV caches in a torchtune model to the specified device."""
+        for module in model.modules():
+            # Check if this module has a kv_cache attribute (torchtune attention modules)
+            if hasattr(module, 'kv_cache') and module.kv_cache is not None:
+                kv_cache = module.kv_cache
+                # Move the cache tensors to device
+                if hasattr(kv_cache, 'k_cache') and kv_cache.k_cache is not None:
+                    kv_cache.k_cache = kv_cache.k_cache.to(device)
+                if hasattr(kv_cache, 'v_cache') and kv_cache.v_cache is not None:
+                    kv_cache.v_cache = kv_cache.v_cache.to(device)
+                # Also move cache_pos if it exists
+                if hasattr(kv_cache, 'cache_pos') and kv_cache.cache_pos is not None:
+                    kv_cache.cache_pos = kv_cache.cache_pos.to(device)
 
     def generate_frame(
         self,
@@ -258,10 +278,12 @@ class HeartMuLa(PreTrainedModel):
         c0_embed = self._embed_audio(0, c0_sample)
 
         self.decoder.reset_caches()
+        # After reset, move KV caches back to device (important for MPS)
+        self._move_kv_caches_to_device(self.decoder, device)
+        
         curr_h = torch.cat([last_h.unsqueeze(1), c0_embed], dim=1)
         curr_sample = c0_sample.clone()
         # Ensure curr_pos is on the correct device
-        device = next(self.parameters()).device
         curr_pos = (
             torch.arange(0, curr_h.size(1), device=device)
             .unsqueeze(0)
