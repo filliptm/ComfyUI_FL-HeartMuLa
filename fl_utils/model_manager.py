@@ -22,7 +22,7 @@ if str(_PACKAGE_ROOT) not in sys.path:
 # Import paths module explicitly to avoid relative import issues
 def _import_paths():
     module_path = _FL_UTILS_DIR / "paths.py"
-    spec = importlib.util.spec_from_file_location("heartmula_paths", str(module_path))
+    spec = importlib.util.spec_from_file_location("fl_heartmula_paths", str(module_path))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -220,7 +220,7 @@ def load_model(
     models_dir = download_models_if_needed(variant, progress_callback)
 
     # Import HeartMuLa pipeline
-    from heartlib import HeartMuLaGenPipeline
+    from fl_heartlib import HeartMuLaGenPipeline
 
     # Setup quantization config if needed
     bnb_config = None
@@ -240,6 +240,7 @@ def load_model(
 
     # Load the pipeline
     print(f"[FL HeartMuLa] Loading HeartMuLa-{variant} pipeline...")
+    
     pipeline = HeartMuLaGenPipeline.from_pretrained(
         pretrained_path=str(models_dir),
         device=device,

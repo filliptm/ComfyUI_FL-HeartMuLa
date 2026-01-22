@@ -15,7 +15,7 @@ _PACKAGE_ROOT = os.path.dirname(os.path.dirname(__file__))
 def _import_from_package(module_name, file_name):
     """Import a module from our package specifically."""
     module_path = os.path.join(_PACKAGE_ROOT, "fl_utils", f"{file_name}.py")
-    spec = importlib.util.spec_from_file_location(f"heartmula_{module_name}", module_path)
+    spec = importlib.util.spec_from_file_location(f"fl_heartmula_{module_name}", module_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -68,7 +68,7 @@ class FL_HeartMuLa_Transcribe:
             sys.path.insert(0, str(_PACKAGE_ROOT))
 
         try:
-            from heartlib import HeartTranscriptorPipeline
+            from fl_heartlib import HeartTranscriptorPipeline
 
             models_dir = get_models_directory()
             transcriptor_path = models_dir / "HeartTranscriptor-oss"

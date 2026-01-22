@@ -17,7 +17,7 @@ _PACKAGE_ROOT = os.path.dirname(os.path.dirname(__file__))
 def _import_from_package(module_name, file_name):
     """Import a module from our package specifically."""
     module_path = os.path.join(_PACKAGE_ROOT, "fl_utils", f"{file_name}.py")
-    spec = importlib.util.spec_from_file_location(f"heartmula_{module_name}", module_path)
+    spec = importlib.util.spec_from_file_location(f"fl_heartmula_{module_name}", module_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -121,6 +121,7 @@ class FL_HeartMuLa_Conditioning:
             tags_ids = tags_ids + [pipeline.config.text_eos_id]
 
         # MuQ embedding placeholder (for future reference audio support)
+        # We can safely access _muq_dim now that we use our own library
         muq_embed = torch.zeros([pipeline._muq_dim], dtype=dtype)
         muq_idx = len(tags_ids)
 
