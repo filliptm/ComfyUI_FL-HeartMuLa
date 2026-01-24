@@ -30,6 +30,11 @@ get_variant_list = _model_manager.get_variant_list
 get_variant_info = _model_manager.get_variant_info
 MODEL_VARIANTS = _model_manager.MODEL_VARIANTS
 clear_model_cache = _model_manager.clear_model_cache
+get_recommended_memory_mode = _model_manager.get_recommended_memory_mode
+get_available_vram_gb = _model_manager.get_available_vram_gb
+
+# Memory mode options
+MEMORY_MODES = ["auto", "normal", "low", "ultra"]
 
 
 class FL_HeartMuLa_ModelLoader:
@@ -59,6 +64,13 @@ class FL_HeartMuLa_ModelLoader:
                 ),
             },
             "optional": {
+                "memory_mode": (
+                    MEMORY_MODES,
+                    {
+                        "default": "auto",
+                        "tooltip": "Memory mode: auto (recommended), normal (fast, high VRAM), low (slower, less VRAM), ultra (minimum VRAM)"
+                    }
+                ),
                 "precision": (
                     ["auto", "fp32", "fp16", "bf16"],
                     {
@@ -86,6 +98,7 @@ class FL_HeartMuLa_ModelLoader:
     def load_model(
         self,
         model_version: str,
+        memory_mode: str = "auto",
         precision: str = "auto",
         use_4bit: bool = False,
         force_reload: bool = False
@@ -95,6 +108,7 @@ class FL_HeartMuLa_ModelLoader:
 
         Args:
             model_version: Which model variant to load (3B or 7B)
+            memory_mode: Memory mode - "auto", "normal", "low", or "ultra"
             precision: Model precision mode
             use_4bit: Enable 4-bit quantization
             force_reload: Force reload even if cached
@@ -114,6 +128,14 @@ class FL_HeartMuLa_ModelLoader:
                 + "="*60
             )
 
+        # Resolve memory mode
+        if memory_mode == "auto":
+            resolved_mode = get_recommended_memory_mode(model_version, use_4bit)
+            available_vram = get_available_vram_gb()
+            print(f"[FL HeartMuLa] Auto-detected memory mode: {resolved_mode} (available VRAM: {available_vram:.1f}GB)")
+        else:
+            resolved_mode = memory_mode
+
         # Get variant info for logging
         variant_info = get_variant_info(model_version)
 
@@ -124,8 +146,14 @@ class FL_HeartMuLa_ModelLoader:
         print(f"Description: {variant_info['description']}")
         print(f"Max Duration: {variant_info['max_duration_ms'] // 1000}s")
         print(f"Languages: {', '.join(variant_info['languages'])}")
+        print(f"Memory Mode: {resolved_mode}")
         vram = variant_info['vram_4bit'] if use_4bit else variant_info['vram_fp16']
-        print(f"VRAM Required: ~{vram}GB")
+        if resolved_mode == "ultra":
+            print(f"VRAM Required: ~{max(6, vram - 6)}GB (ultra low memory mode)")
+        elif resolved_mode == "low":
+            print(f"VRAM Required: ~{max(8, vram - 4)}GB (low memory mode)")
+        else:
+            print(f"VRAM Required: ~{vram}GB")
         print(f"Precision: {precision}")
         print(f"4-bit Quantization: {use_4bit}")
         print(f"{'='*60}\n")
@@ -144,6 +172,11 @@ class FL_HeartMuLa_ModelLoader:
                 force_reload=force_reload,
                 progress_callback=progress_callback,
             )
+
+            # Add memory mode flags to model_info for sampler
+            model_info["memory_mode"] = resolved_mode
+            model_info["low_mem"] = resolved_mode in ("low", "ultra")
+            model_info["ultra_low_mem"] = resolved_mode == "ultra"
 
             pbar.update_absolute(4)
             print(f"[FL HeartMuLa] Model loaded successfully!")

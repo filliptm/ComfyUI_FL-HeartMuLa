@@ -84,12 +84,19 @@ class FL_HeartMuLa_Decode:
 
         pipeline = model["pipeline"]
         sample_rate = model["sample_rate"]
+        ultra_low_mem = model.get("ultra_low_mem", False)
 
         frames = audio_tokens["frames"]
         num_frames = audio_tokens["num_frames"]
 
         print(f"Input frames: {frames.shape}")
         print(f"Frame count: {num_frames}")
+
+        # Pre-cleanup for ultra low memory mode
+        if ultra_low_mem:
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         # Progress bar for decode operation
         pbar = ProgressBar(2)

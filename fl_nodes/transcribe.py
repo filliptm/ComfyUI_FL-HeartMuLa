@@ -8,6 +8,8 @@ import sys
 import importlib.util
 from typing import Tuple
 
+import torch
+
 # Get the package root directory
 _PACKAGE_ROOT = os.path.dirname(os.path.dirname(__file__))
 
@@ -83,8 +85,25 @@ class FL_HeartMuLa_Transcribe:
                     local_dir_use_symlinks=False,
                 )
 
-            # Load the pipeline
-            pipeline = HeartTranscriptorPipeline.from_pretrained(str(transcriptor_path))
+            # Determine device and dtype
+            if torch.cuda.is_available():
+                device = torch.device("cuda")
+                dtype = torch.float16
+            else:
+                device = torch.device("cpu")
+                dtype = torch.float32
+
+            # Load the pipeline with device and dtype
+            try:
+                pipeline = HeartTranscriptorPipeline.from_pretrained(
+                    str(transcriptor_path),
+                    device=device,
+                    dtype=dtype
+                )
+            except TypeError:
+                # Fallback for older versions that don't require device/dtype
+                pipeline = HeartTranscriptorPipeline.from_pretrained(str(transcriptor_path))
+
             FL_HeartMuLa_Transcribe._transcriptor_cache = pipeline
 
             print("[FL HeartMuLa] HeartTranscriptor loaded!")

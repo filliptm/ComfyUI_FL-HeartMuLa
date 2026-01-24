@@ -121,7 +121,7 @@ class FL_HeartMuLa_Conditioning:
             tags_ids = tags_ids + [pipeline.config.text_eos_id]
 
         # MuQ embedding placeholder (for future reference audio support)
-        muq_embed = torch.zeros([pipeline._muq_dim], dtype=dtype)
+        muq_embed = torch.zeros((pipeline._muq_dim,), dtype=dtype)
         muq_idx = len(tags_ids)
 
         # Process lyrics

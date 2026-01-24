@@ -144,6 +144,17 @@ class FL_HeartMuLa_Sampler:
         device = model["device"]
         dtype = model["dtype"]
         max_duration_ms = model.get("max_duration_ms", 240000)
+        low_mem = model.get("low_mem", False)
+        ultra_low_mem = model.get("ultra_low_mem", False)
+
+        # Ultra low memory mode: aggressive cleanup before starting
+        if ultra_low_mem:
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+                allocated = torch.cuda.memory_allocated() / (1024**3)
+                print(f"[FL HeartMuLa] Ultra low mem: Starting with {allocated:.2f}GB VRAM allocated")
 
         # Clamp duration
         max_duration_ms = min(max_duration_sec * 1000, max_duration_ms)
@@ -254,7 +265,17 @@ class FL_HeartMuLa_Sampler:
             return (audio_tokens,)
 
         finally:
-            # Clean up
+            # Clean up - reset KV caches to free memory
+            try:
+                pipeline.model.reset_caches()
+            except (RuntimeError, AttributeError):
+                pass
+
+            # Aggressive cleanup for low/ultra memory modes
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+                if ultra_low_mem:
+                    torch.cuda.synchronize()
+                    allocated = torch.cuda.memory_allocated() / (1024**3)
+                    print(f"[FL HeartMuLa] Ultra low mem: Finished with {allocated:.2f}GB VRAM allocated")

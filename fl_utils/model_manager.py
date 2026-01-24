@@ -240,13 +240,30 @@ def load_model(
 
     # Load the pipeline
     print(f"[FL HeartMuLa] Loading HeartMuLa-{variant} pipeline...")
-    pipeline = HeartMuLaGenPipeline.from_pretrained(
-        pretrained_path=str(models_dir),
-        device=device,
-        dtype=dtype,
-        version=variant,
-        bnb_config=bnb_config,
-    )
+    try:
+        # Try with dtype argument (older versions)
+        pipeline = HeartMuLaGenPipeline.from_pretrained(
+            pretrained_path=str(models_dir),
+            device=device,
+            dtype=dtype,
+            version=variant,
+            bnb_config=bnb_config,
+        )
+    except TypeError as e:
+        if "dtype" in str(e):
+            # Newer versions don't accept dtype - pass it separately
+            print("[FL HeartMuLa] Using updated API without dtype argument...")
+            pipeline = HeartMuLaGenPipeline.from_pretrained(
+                pretrained_path=str(models_dir),
+                device=device,
+                version=variant,
+                bnb_config=bnb_config,
+            )
+            # Set dtype on model if needed
+            if hasattr(pipeline, 'to') and dtype != torch.float32:
+                pipeline = pipeline.to(dtype=dtype)
+        else:
+            raise
 
     # Create model info dict
     model_info = {
@@ -288,3 +305,64 @@ def get_cache_info() -> dict:
         "cached_models": list(_MODEL_CACHE.keys()),
         "num_cached": len(_MODEL_CACHE),
     }
+
+
+def get_available_vram_gb() -> float:
+    """
+    Get available VRAM in GB.
+
+    Returns:
+        Available VRAM in GB, or 0 if CUDA not available.
+    """
+    if not torch.cuda.is_available():
+        return 0.0
+
+    # Get total and allocated memory
+    total = torch.cuda.get_device_properties(0).total_memory
+    allocated = torch.cuda.memory_allocated(0)
+    reserved = torch.cuda.memory_reserved(0)
+
+    # Available = total - max(allocated, reserved) - some overhead
+    used = max(allocated, reserved)
+    available = (total - used) / (1024**3)
+
+    # Account for ~1.5GB system/driver overhead
+    available = max(0, available - 1.5)
+
+    return available
+
+
+def get_recommended_memory_mode(variant: str, use_4bit: bool = False) -> str:
+    """
+    Auto-detect best memory mode based on available VRAM.
+
+    Args:
+        variant: Model variant name
+        use_4bit: Whether 4-bit quantization is enabled
+
+    Returns:
+        Recommended mode: "normal", "low", or "ultra"
+    """
+    if not torch.cuda.is_available():
+        return "ultra"
+
+    available_vram = get_available_vram_gb()
+    variant_info = MODEL_VARIANTS.get(variant, MODEL_VARIANTS["3B"])
+
+    # Get VRAM requirements based on quantization
+    if use_4bit:
+        vram_normal = variant_info.get("vram_4bit", 6)
+        vram_low = max(4, vram_normal - 2)
+        vram_ultra = max(3, vram_normal - 3)
+    else:
+        vram_normal = variant_info.get("vram_fp16", 12)
+        vram_low = max(8, vram_normal - 4)
+        vram_ultra = max(6, vram_normal - 6)
+
+    if available_vram >= vram_normal + 2:  # Buffer for KV cache
+        return "normal"
+    elif available_vram >= vram_low:
+        return "low"
+    else:
+        print(f"[FL HeartMuLa] Low VRAM detected ({available_vram:.1f}GB). Using ultra mode.")
+        return "ultra"
