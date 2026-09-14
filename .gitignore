@@ -89,3 +89,7 @@ coverage.xml
 
 # HeartLib source (bundled separately)
 heartlib_source/
+
+# Local training recordings and generated experiment output
+/experiments/data/
+/experiments/output/
